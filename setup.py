@@ -11,7 +11,7 @@ setup(
     url='https://github.com/hhatto/pyjsmn',
     ext_modules=[
         Extension('pyjsmn',
-                  sources=['pyjsmn/_jsmn.c', ],
+                  sources=['pyjsmn/_jsmn.c'],
                   include_dirs=['./jsmn/'],
                   library_dirs=['./jsmn/'],
                   libraries=['jsmn'])]

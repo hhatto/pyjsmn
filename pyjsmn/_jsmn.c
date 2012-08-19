@@ -48,12 +48,12 @@ static PyMethodDef PyjsmnMethods[] = {
 
 
 PyMODINIT_FUNC
-initjsmn(void)
+initpyjsmn(void)
 {
     PyObject *module;
 
     /* The module */
-    module = Py_InitModule3("jsmn", PyjsmnMethods, pyjsmn__doc__);
+    module = Py_InitModule3("pyjsmn", PyjsmnMethods, pyjsmn__doc__);
     if (module == NULL)
         return;
 
