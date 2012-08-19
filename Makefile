@@ -3,5 +3,5 @@ build:
 	python setup.py build
 
 clean:
-	rm -rf build
+	rm -rf build *.egg-info temp
 	cd jsmn && make clean
