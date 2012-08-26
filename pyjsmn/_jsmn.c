@@ -6,14 +6,16 @@
 #define DEFAULT_TOKEN_SIZE 256
 
 typedef struct {
-    PyObject **stack;
+    PyObject *stack[128];
     unsigned int size;
     unsigned int used;
-} _pyjsmn_element;
+} _pyjsmn_stack;
 
 typedef struct {
-    _pyjsmn_element element;
+    _pyjsmn_stack elements;
+    _pyjsmn_stack keys;
     PyObject *root;
+    jsmntype_t root_type;
 } _pyjsmn_ctx;
 
 static _pyjsmn_ctx _ctx;
@@ -24,8 +26,13 @@ PyDoc_STRVAR(pyjsmn__doc__, "Python binding for jsmn");
 PyDoc_STRVAR(pyjsmn_loads__doc__, "Decoding JSON");
 
 static int
-_set_object(PyObject *parent, PyObject *child)
+_set_object(_pyjsmn_ctx *ctx, PyObject *parent, PyObject *child)
 {
+    if (child && !parent) {
+        ctx->root = child;
+        return 0;
+    }
+
     if (!parent || !child)
         return -1;
 
@@ -36,7 +43,9 @@ _set_object(PyObject *parent, PyObject *child)
         }
     }
     else if (PyDict_Check(parent)) {
-        PyDict_SetItemString(parent, "hoge", child);
+        PyObject *key = ctx->keys.stack[ctx->keys.used - 1];
+        PyDict_SetItem(parent, key, child);
+        Py_DECREF(key);
         if (child && child != Py_None) {
             Py_XDECREF(child);
         }
@@ -56,11 +65,13 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
     switch (token->type) {
         case JSMN_OBJECT:
             object = PyDict_New();
-            ctx->element.size += token->size;
+            ctx->elements.size += token->size * 2;
+            ctx->root_type = JSMN_OBJECT;
             break;
         case JSMN_ARRAY:
             object = PyList_New(0);
-            ctx->element.size += token->size;
+            ctx->elements.size += token->size;
+            ctx->root_type = JSMN_ARRAY;
             break;
         case JSMN_STRING:
             object = PyUnicode_FromStringAndSize(jsontext+token->start,
@@ -104,16 +115,17 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
             return NULL;
     }
 
+    ctx->elements.used++;
     return object;
 }
 
 static PyObject *
 _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 {
-    int i = 0;
+    int i;
     PyObject *object;
 
-    while (token[i].start != -1) {
+    for (i = 0; token[i].start != -1; i++) {
 #ifdef DEBUG
         char tmp[256] = {0};
         printf("size:%d, st:%d, ed:%d ===\n%s\n",
@@ -124,21 +136,18 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         object = NULL;
         object = _get_pyobject(ctx, token + i, jsontext);
 
-        i++;
         if (!object) continue;
 
-        if (ctx->element.used == 0) {
-            ctx->root = object;
-            ctx->element.used++;
+        if ((ctx->root_type == JSMN_OBJECT) && ((ctx->elements.used % 2) == 0)) {
+            ctx->keys.stack[ctx->keys.used] = object;
+            ctx->keys.used++;
+            continue;
         }
-        else {
-            _set_object(ctx->root, object);
-        }
+
+        _set_object(ctx, ctx->root, object);
     }
 
-    PyObject *root = ctx->root;
-    ctx->root = NULL;
-    return root;
+    return ctx->root;
 }
 
 static PyObject *
