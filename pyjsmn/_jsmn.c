@@ -3,13 +3,143 @@
 
 #include "jsmn.h"
 
-static jsmn_parser parser;
+#define DEFAULT_TOKEN_SIZE 256
 
+typedef struct {
+    PyObject **stack;
+    unsigned int size;
+    unsigned int used;
+} _pyjsmn_element;
+
+typedef struct {
+    _pyjsmn_element element;
+    PyObject *root;
+} _pyjsmn_ctx;
+
+static _pyjsmn_ctx _ctx;
+static jsmn_parser parser;
 
 /* The module doc strings */
 PyDoc_STRVAR(pyjsmn__doc__, "Python binding for jsmn");
 PyDoc_STRVAR(pyjsmn_loads__doc__, "Decoding JSON");
 
+static int
+_set_object(PyObject *parent, PyObject *child)
+{
+    if (!parent || !child)
+        return -1;
+
+    if (PyList_Check(parent)) {
+        PyList_Append(parent, child);
+        if (child && child != Py_None) {
+            Py_XDECREF(child);
+        }
+    }
+    else if (PyDict_Check(parent)) {
+        PyDict_SetItemString(parent, "hoge", child);
+        if (child && child != Py_None) {
+            Py_XDECREF(child);
+        }
+    }
+
+    return 0;
+}
+
+static PyObject*
+_get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
+{
+    int offset;
+    int is_float;
+    PyObject *object;
+    void *tmp_string;
+
+    switch (token->type) {
+        case JSMN_OBJECT:
+            object = PyDict_New();
+            ctx->element.size += token->size;
+            break;
+        case JSMN_ARRAY:
+            object = PyList_New(0);
+            ctx->element.size += token->size;
+            break;
+        case JSMN_STRING:
+            object = PyUnicode_FromStringAndSize(jsontext+token->start,
+                                                 token->end - token->start);
+            // TODO: error handling
+            break;
+        case JSMN_PRIMITIVE:
+            switch (jsontext[token->start]) {
+                case 't':
+                    object = PyBool_FromLong(1);
+                    break;
+                case 'f':
+                    object = PyBool_FromLong(0);
+                    break;
+                case 'n':
+                    Py_INCREF(Py_None);
+                    object = Py_None;
+                    break;
+                default:  // number
+                    is_float = 0;
+                    for (offset = 0; (token->end-token->start) > offset; offset++) {
+                        switch (jsontext[token->start+offset]) {
+                            case '.':
+                            case 'e':
+                            case 'E':
+                                is_float = 1;
+                                break;
+                        }
+                        if (is_float) break;
+                    }
+                    tmp_string = PyString_FromStringAndSize(
+                            jsontext+token->start, token->end - token->start);
+                    if (is_float) object = PyFloat_FromString(tmp_string, NULL);
+                    else          object = PyInt_FromString(PyString_AS_STRING(tmp_string), NULL, 10);
+                    Py_XDECREF(tmp_string);
+                    break;
+            }
+            break;
+        default:
+            printf("not support type!!\n");
+            return NULL;
+    }
+
+    return object;
+}
+
+static PyObject *
+_build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
+{
+    int i = 0;
+    PyObject *object;
+
+    while (token[i].start != -1) {
+#ifdef DEBUG
+        char tmp[256] = {0};
+        printf("size:%d, st:%d, ed:%d ===\n%s\n",
+               token[i].size, token[i].start, token[i].end,
+               strncat(tmp, jsontext+token[i].start, token[i].end-token[i].start));
+#endif
+
+        object = NULL;
+        object = _get_pyobject(ctx, token + i, jsontext);
+
+        i++;
+        if (!object) continue;
+
+        if (ctx->element.used == 0) {
+            ctx->root = object;
+            ctx->element.used++;
+        }
+        else {
+            _set_object(ctx->root, object);
+        }
+    }
+
+    PyObject *root = ctx->root;
+    ctx->root = NULL;
+    return root;
+}
 
 static PyObject *
 pyjsmn_loads(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -17,26 +147,33 @@ pyjsmn_loads(PyObject *self, PyObject *args, PyObject *kwargs)
     static char *kwlist[] = {"text"};
     char *text;
     int ret;
-    jsmntok_t token[10];
-    PyObject *object;
+    jsmntok_t token[DEFAULT_TOKEN_SIZE];
 
     /* Parse arguments */
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s", kwlist, &text))
         return NULL;
 
-    ret = jsmn_parse(&parser, text, token, 10);
-    if (ret != JSMN_SUCCESS) {
-        PyErr_SetString(PyExc_TypeError, "parse error.");
-        return NULL;
+    memset(&_ctx, 0, sizeof(_pyjsmn_ctx));
+    memset(token, 0, sizeof(token));
+
+    jsmn_init(&parser);
+    ret = jsmn_parse(&parser, text, token, DEFAULT_TOKEN_SIZE);
+    switch (ret) {
+        case JSMN_SUCCESS:
+            break;
+        case JSMN_ERROR_NOMEM:
+            PyErr_SetString(PyExc_RuntimeError, "not enough tokens error.");
+            return NULL;
+        case JSMN_ERROR_INVAL:
+            PyErr_SetString(PyExc_RuntimeError, "invalid json string.");
+            return NULL;
+        case JSMN_ERROR_PART:
+        default:
+            PyErr_SetString(PyExc_RuntimeError, "parse error.");
+            return NULL;
     }
 
-    int i;
-    for (i=0; i<10; i++) {
-        printf("%d, %d, %d, %d\n",
-               token[i].type, token[i].start, token[i].end, token[i].size);
-    }
-
-    return Py_BuildValue("i", 1);
+    return _build_value(&_ctx, token, text);
 }
 
 
@@ -56,6 +193,4 @@ initpyjsmn(void)
     module = Py_InitModule3("pyjsmn", PyjsmnMethods, pyjsmn__doc__);
     if (module == NULL)
         return;
-
-    jsmn_init(&parser);
 }
