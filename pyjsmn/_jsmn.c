@@ -138,7 +138,8 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 
         if (!object) continue;
 
-        if ((ctx->root_type == JSMN_OBJECT) && ((ctx->elements.used % 2) == 0)) {
+        if (!PyDict_Check(object) &&
+            (ctx->root_type == JSMN_OBJECT) && ((ctx->elements.used % 2) == 0)) {
             ctx->keys.stack[ctx->keys.used] = object;
             ctx->keys.used++;
             continue;
