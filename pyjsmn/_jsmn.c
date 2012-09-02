@@ -5,6 +5,11 @@
 
 #define DEFAULT_TOKEN_SIZE 256
 
+#ifdef DEBUG
+#define _debug(format,...) printf("[DEBUG]" format,__VA_ARGS__)
+#define _info(format,...) printf("[INFO]" format,__VA_ARGS__)
+#endif
+
 typedef struct {
     PyObject *stack[128];
     unsigned int size;
@@ -30,10 +35,10 @@ _set_object(_pyjsmn_ctx *ctx, PyObject *parent, PyObject *child)
 {
     if (child && !parent) {
         ctx->root = child;
+        ctx->elements.stack[ctx->elements.used - 1] = child;
         return 0;
     }
-
-    if (!parent || !child)
+    else if (!parent || !child)
         return -1;
 
     if (PyList_Check(parent)) {
@@ -44,11 +49,16 @@ _set_object(_pyjsmn_ctx *ctx, PyObject *parent, PyObject *child)
     }
     else if (PyDict_Check(parent)) {
         PyObject *key = ctx->keys.stack[ctx->keys.used - 1];
+#ifdef DEBUG
+        _debug("used:%d\n", ctx->keys.used);
+        _debug("parent:%p, key:%p, child:%p\n", parent, key, child);
+#endif
         PyDict_SetItem(parent, key, child);
         Py_DECREF(key);
         if (child && child != Py_None) {
             Py_XDECREF(child);
         }
+        ctx->keys.used--;
     }
 
     return 0;
@@ -65,13 +75,15 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
     switch (token->type) {
         case JSMN_OBJECT:
             object = PyDict_New();
-            ctx->elements.size += token->size * 2;
+            ctx->elements.size += token->size;
             ctx->root_type = JSMN_OBJECT;
+            ctx->elements.used++;
             break;
         case JSMN_ARRAY:
             object = PyList_New(0);
             ctx->elements.size += token->size;
             ctx->root_type = JSMN_ARRAY;
+            ctx->elements.used++;
             break;
         case JSMN_STRING:
             object = PyUnicode_FromStringAndSize(jsontext+token->start,
@@ -111,11 +123,11 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
             }
             break;
         default:
+            // TODO: error handling
             printf("not support type!!\n");
             return NULL;
     }
 
-    ctx->elements.used++;
     return object;
 }
 
@@ -127,8 +139,8 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 
     for (i = 0; token[i].start != -1; i++) {
 #ifdef DEBUG
-        char tmp[256] = {0};
-        printf("size:%d, st:%d, ed:%d ===\n%s\n",
+        char tmp[10240] = {0};
+        _debug("=== size:%d, st:%d, ed:%d ===\n%s\n",
                token[i].size, token[i].start, token[i].end,
                strncat(tmp, jsontext+token[i].start, token[i].end-token[i].start));
 #endif
@@ -138,14 +150,24 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 
         if (!object) continue;
 
+#ifdef DEBUG
+        _debug("type         :%d\n", (token+i)->type);
+        _debug("root_type    :%d\n", ctx->root_type);
+        _debug("elements.used:%d\n", ctx->elements.used);
+        _debug("elements.size:%d\n", ctx->elements.size);
+        _debug("keys.used    :%d\n", ctx->keys.used);
+        _debug("keys.size    :%d\n", ctx->keys.size);
+#endif
+
         if (!PyDict_Check(object) &&
-            (ctx->root_type == JSMN_OBJECT) && ((ctx->elements.used % 2) == 0)) {
+            (ctx->root_type == JSMN_OBJECT) && ((ctx->keys.used % 2) == 0)) {
             ctx->keys.stack[ctx->keys.used] = object;
             ctx->keys.used++;
             continue;
         }
 
         _set_object(ctx, ctx->root, object);
+        //_set_object(ctx, ctx->elements.stack[ctx->elements.used - 1], object);
     }
 
     return ctx->root;
