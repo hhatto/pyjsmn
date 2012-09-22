@@ -17,15 +17,10 @@ typedef struct {
 } _pyjsmn_stack;
 
 typedef struct {
-    PyObject *stack[128];
-    unsigned int size;
-    unsigned int used;
-} _pyjsmn_keys;
-
-typedef struct {
     _pyjsmn_stack elements[128];
-    _pyjsmn_keys keys;
+    _pyjsmn_stack keys[128];
     int stack_offset;
+    int key_offset;
     PyObject *root;
     jsmntype_t root_type;
 } _pyjsmn_ctx;
@@ -58,10 +53,10 @@ _set_object(_pyjsmn_ctx *ctx, PyObject *parent, PyObject *child)
         }
     }
     else if (PyDict_Check(parent)) {
-        PyObject *key = ctx->keys.stack[ctx->keys.used - 1];
+        PyObject *key = ctx->keys[ctx->key_offset].stack;
 
 #ifdef DEBUG
-        _debug("used:%d\n", ctx->keys.used);
+        _debug("used:%d\n", ctx->keys[ctx->key_offset].used);
         _debug("parent:%p, key:%p, child:%p\n", parent, key, child);
 #endif
 
@@ -70,7 +65,7 @@ _set_object(_pyjsmn_ctx *ctx, PyObject *parent, PyObject *child)
         if (child && child != Py_None) {
             Py_XDECREF(child);
         }
-        ctx->keys.used--;
+        ctx->keys[ctx->key_offset].used--;
     }
 
     return 0;
@@ -88,6 +83,7 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 
         case JSMN_OBJECT:
             ctx->stack_offset++;
+            ctx->key_offset++;
             object = PyDict_New();
             ctx->elements[ctx->stack_offset].size += token->size;
             ctx->root_type = JSMN_OBJECT;
@@ -105,7 +101,7 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
             break;
 
         case JSMN_STRING:
-            object = PyUnicode_FromStringAndSize(jsontext+token->start,
+            object = PyUnicode_FromStringAndSize(jsontext + token->start,
                                                  token->end - token->start);
             // TODO: error handling
             ctx->elements[ctx->stack_offset].used++;
@@ -172,19 +168,23 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         if (!object) continue;
 
 #ifdef DEBUG
-        _debug("type         :%d\n", (token+i)->type);
-        _debug("root_type    :%d\n", ctx->root_type);
-        _debug("elements.used:%d\n", ctx->elements[ctx->stack_offset].used);
-        _debug("elements.size:%d\n", ctx->elements[ctx->stack_offset].size);
-        _debug("keys.used    :%d\n", ctx->keys.used);
-        _debug("keys.size    :%d\n", ctx->keys.size);
-        _debug("stack_offset :%d\n", ctx->stack_offset);
+        _debug("type             :%d\n", (token+i)->type);
+        _debug("root_type        :%d\n", ctx->root_type);
+        _debug("elements[%2d].used:%d\n", ctx->stack_offset,
+                                          ctx->elements[ctx->stack_offset].used);
+        _debug("elements[%2d].size:%d\n", ctx->stack_offset,
+                                          ctx->elements[ctx->stack_offset].size);
+        _debug("keys[%2d].used    :%d\n", ctx->key_offset,
+                                          ctx->keys[ctx->key_offset].used);
+        _debug("keys[%2d].size    :%d\n", ctx->key_offset,
+                                          ctx->keys[ctx->key_offset].size);
 #endif
 
-        if (!PyDict_Check(object) &&
-            (ctx->root_type == JSMN_OBJECT) && ((ctx->keys.used % 2) == 0)) {
-            ctx->keys.stack[ctx->keys.used] = object;
-            ctx->keys.used++;
+        if (PyDict_Check(ctx->root) && !PyDict_Check(object) &&
+                (ctx->keys[ctx->key_offset].used % 2) == 0) {
+            ctx->keys[ctx->key_offset].stack = object;
+            ctx->keys[ctx->key_offset].used++;
+            printf("found key\n");
             continue;
         }
 
@@ -193,6 +193,9 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 
         if (ctx->elements[ctx->stack_offset].used == ctx->elements[ctx->stack_offset].size &&
             ctx->stack_offset != 0) {
+            if (PyDict_Check(ctx->elements[ctx->stack_offset].stack)) {
+                ctx->key_offset--;
+            }
             ctx->stack_offset--;
             _set_object(ctx, ctx->elements[ctx->stack_offset].stack,
                         ctx->elements[ctx->stack_offset+1].stack);
@@ -220,6 +223,7 @@ pyjsmn_loads(PyObject *self, PyObject *args, PyObject *kwargs)
 
     jsmn_init(&parser);
     _ctx.stack_offset = -1;
+    _ctx.key_offset = -1;
     ret = jsmn_parse(&parser, text, token, DEFAULT_TOKEN_SIZE);
     switch (ret) {
         case JSMN_SUCCESS:

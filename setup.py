@@ -14,6 +14,6 @@ setup(
                   sources=['pyjsmn/_jsmn.c'],
                   include_dirs=['./jsmn/'],
                   library_dirs=['./jsmn/'],
-                  extra_compile_args=["-DDEBUG"],
+                  #extra_compile_args=["-DDEBUG"],
                   libraries=['jsmn'])]
 )
