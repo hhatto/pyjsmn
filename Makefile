@@ -3,6 +3,10 @@ install:
 	make jsmnbuild
 	easy_install -ZU .
 
+setup:
+	rm -rf jsmn
+	hg clone https://bitbucket.org/zserge/jsmn
+
 test:
 	python tests/test_pyjsmn.py
 
