@@ -17,8 +17,8 @@ typedef struct {
 } _pyjsmn_stack;
 
 typedef struct {
-    _pyjsmn_stack elements[128];
-    _pyjsmn_stack keys[128];
+    _pyjsmn_stack elements[64];
+    _pyjsmn_stack keys[64];
     int stack_offset;
     int key_offset;
     PyObject *root;
@@ -41,6 +41,9 @@ _set_object(_pyjsmn_ctx *ctx, PyObject *parent, PyObject *child)
         }
         ctx->root = child;
         ctx->elements[ctx->stack_offset].stack = child;
+#ifdef DEBUG
+        _debug("first:%d\n", 1);
+#endif
         return 0;
     }
     else if (!parent || !child)
@@ -101,8 +104,10 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
             break;
 
         case JSMN_STRING:
-            object = PyUnicode_FromStringAndSize(jsontext + token->start,
-                                                 token->end - token->start);
+            //object = PyUnicode_FromStringAndSize(jsontext + token->start,
+            //                                     token->end - token->start);
+            object = PyString_FromStringAndSize(jsontext + token->start,
+                                                token->end - token->start);
             // TODO: error handling
             ctx->elements[ctx->stack_offset].used++;
             break;
@@ -178,9 +183,10 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
                                           ctx->keys[ctx->key_offset].used);
         _debug("keys[%2d].size    :%d\n", ctx->key_offset,
                                           ctx->keys[ctx->key_offset].size);
+        _debug("ctx->root:%p, object:%p\n", ctx->root, object);
 #endif
 
-        if (PyDict_Check(ctx->root) && !PyDict_Check(object) &&
+        if (ctx->root && PyDict_Check(ctx->root) && !PyDict_Check(object) &&
                 (ctx->keys[ctx->key_offset].used % 2) == 0) {
             ctx->keys[ctx->key_offset].stack = object;
             ctx->keys[ctx->key_offset].used++;
