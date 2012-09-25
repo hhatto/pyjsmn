@@ -96,6 +96,7 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 
         case JSMN_ARRAY:
             ctx->stack_offset++;
+            ctx->key_offset++;
             object = PyList_New(0);
             ctx->elements[ctx->stack_offset].size += token->size;
             ctx->root_type = JSMN_ARRAY;
@@ -174,8 +175,22 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         if (!object) continue;
 
 #ifdef DEBUG
-        _debug("type             :%d\n", (token+i)->type);
-        _debug("root_type        :%d\n", ctx->root_type);
+        if ((token+i)->type == JSMN_OBJECT)
+            _debug("type             :%d HASH\n", (token+i)->type);
+        else if ((token+i)->type == JSMN_ARRAY)
+            _debug("type             :%d LIST\n", (token+i)->type);
+        else if ((token+i)->type == JSMN_STRING)
+            _debug("type             :%d STRING\n", (token+i)->type);
+        else
+            _debug("type             :%d PRIMITIVE\n", (token+i)->type);
+        if (ctx->root_type == JSMN_OBJECT)
+            _debug("root_type        :%d HASH\n", ctx->root_type);
+        else if (ctx->root_type == JSMN_ARRAY)
+            _debug("root_type        :%d LIST\n", ctx->root_type);
+        else if (ctx->root_type == JSMN_STRING)
+            _debug("root_type        :%d STRING\n", ctx->root_type);
+        else
+            _debug("root_type        :%d PRIMITIVE\n", ctx->root_type);
         _debug("elements[%2d].used:%d\n", ctx->stack_offset,
                                           ctx->elements[ctx->stack_offset].used);
         _debug("elements[%2d].size:%d\n", ctx->stack_offset,
@@ -191,7 +206,9 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
                 (ctx->keys[ctx->key_offset].used % 2) == 0) {
             ctx->keys[ctx->key_offset].stack = object;
             ctx->keys[ctx->key_offset].used++;
+#ifdef DEBUG
             printf("found key\n");
+#endif
             continue;
         }
 
@@ -199,14 +216,35 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         ctx->root = ctx->elements[ctx->stack_offset].stack;
 
         if (ctx->elements[ctx->stack_offset].used == ctx->elements[ctx->stack_offset].size &&
-            ctx->stack_offset != 0) {
-            if (PyDict_Check(ctx->elements[ctx->stack_offset].stack)) {
-                ctx->key_offset--;
-            }
+                ctx->stack_offset != 0) {
+            //if (PyDict_Check(ctx->elements[ctx->stack_offset].stack)) {
+            //    memset(&ctx->keys[ctx->key_offset], 0, sizeof(_pyjsmn_stack));
+            //    ctx->key_offset--;
+            //}
+            ctx->key_offset--;
             ctx->stack_offset--;
+
+#ifdef DEBUG
+            printf("stack set\n");
+#endif
             _set_object(ctx, ctx->elements[ctx->stack_offset].stack,
                         ctx->elements[ctx->stack_offset+1].stack);
             ctx->root = ctx->elements[ctx->stack_offset].stack;
+            if (PyDict_Check(ctx->root)) {
+                ctx->root_type = JSMN_OBJECT;
+#ifdef DEBUG
+            printf("stack object\n");
+#endif
+            }
+            else {
+                ctx->root_type = JSMN_ARRAY;
+#ifdef DEBUG
+            printf("stack array\n");
+#endif
+            }
+
+            memset(&ctx->elements[ctx->stack_offset+1], 0, sizeof(_pyjsmn_stack));
+            memset(&ctx->keys[ctx->key_offset], 0, sizeof(_pyjsmn_stack));
         }
     }
 
@@ -231,6 +269,7 @@ pyjsmn_loads(PyObject *self, PyObject *args, PyObject *kwargs)
     jsmn_init(&parser);
     _ctx.stack_offset = -1;
     _ctx.key_offset = -1;
+
     ret = jsmn_parse(&parser, text, token, DEFAULT_TOKEN_SIZE);
     switch (ret) {
         case JSMN_SUCCESS:

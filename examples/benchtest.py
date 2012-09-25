@@ -199,6 +199,6 @@ if jsonobj != masterobj:
     print len(jsonobj), len(masterobj)
     print jsonobj
     print masterobj
-jsonobj = json.loads(jsonstr)
-if jsonobj != masterobj:
-    print "error!!"
+#jsonobj = json.loads(jsonstr)
+#if jsonobj != masterobj:
+#    print "error!!"
