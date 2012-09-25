@@ -57,12 +57,25 @@ class TestDecodeSimple(unittest.TestCase):
     def test_dict_size_one(self):
         text = """{"20":null}"""
         ret = pyjsmn.loads(text)
-        self.assertEqual(ret, {'20':None})
+        self.assertEqual(ret, {'20': None})
 
     def test_dict_size_two(self):
         text = """{"hoge":null, "huga":134}"""
         ret = pyjsmn.loads(text)
-        self.assertEqual(ret, {"hoge":None, "huga":134})
+        self.assertEqual(ret, {"hoge": None, "huga": 134})
+
+
+class TestDecodeComplex(unittest.TestCase):
+
+    def test_list_in_dict(self):
+        text = """{"test": [1, "hello"]}"""
+        ret = pyjsmn.loads(text)
+        self.assertEqual(ret, {"test": [1, "hello"]})
+
+    def test_dict_in_dict(self):
+        text = """{"test": {"hello": "world"}}"""
+        ret = pyjsmn.loads(text)
+        self.assertEqual(ret, {"test": {"hello": "world"}})
 
 
 if __name__ == '__main__':
