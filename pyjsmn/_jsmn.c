@@ -159,7 +159,8 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
     int i;
     PyObject *object;
 
-    for (i = 0; token[i].start != -1; i++) {
+    for (i = 0;
+         token[i].start != 0 || token[i].size != 0 || token[i].end != 0; i++) {
 #ifdef DEBUG
         char tmp[10240] = {0};
         _debug("=== size:%d, st:%d, ed:%d ===\n%s\n",
