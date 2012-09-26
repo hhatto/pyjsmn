@@ -3,7 +3,9 @@ install:
 	make jsmnbuild
 	easy_install -ZU .
 
-setup:
+setup: freshjsmn jsmnbuild
+
+freshjsmn:
 	rm -rf jsmn
 	/usr/bin/hg clone https://bitbucket.org/zserge/jsmn
 
