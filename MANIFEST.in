@@ -1,1 +1,3 @@
 include README.rst
+include jsmn
+include jsmn/*.h
