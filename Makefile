@@ -7,7 +7,7 @@ setup: clean freshjsmn jsmnbuild
 
 freshjsmn:
 	rm -rf jsmn
-	/usr/bin/hg clone https://bitbucket.org/zserge/jsmn
+	hg clone https://bitbucket.org/zserge/jsmn
 
 test:
 	python tests/test_pyjsmn.py
@@ -22,7 +22,6 @@ pyjsmnbuild:
 
 clean:
 	rm -rf build *.egg-info temp
-	cd jsmn && make clean
 	rm -rf tests/*.pyc
 
 pypireg:
