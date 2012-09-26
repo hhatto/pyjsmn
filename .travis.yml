@@ -8,7 +8,7 @@ python:
     #- "pypy"
 
 install:
-    - python setup.py install
+    - make setup && python setup.py install
 
 script:
     - python tests/test_pyjsmn.py
