@@ -3,7 +3,7 @@ install:
 	make jsmnbuild
 	easy_install -ZU .
 
-setup: freshjsmn jsmnbuild
+setup: clean freshjsmn jsmnbuild
 
 freshjsmn:
 	rm -rf jsmn
@@ -24,3 +24,7 @@ clean:
 	rm -rf build *.egg-info temp
 	cd jsmn && make clean
 	rm -rf tests/*.pyc
+
+pypireg:
+	python setup.py register
+	python setup.py sdist upload
