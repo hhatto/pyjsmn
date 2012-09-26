@@ -54,12 +54,16 @@ _set_object(_pyjsmn_ctx *ctx, PyObject *parent, PyObject *child)
         if (child && child != Py_None) {
             Py_XDECREF(child);
         }
+#ifdef DEBUG
+        _debug("list used:%d\n", 0);
+        _debug("parent:%p, child:%p\n", parent, child);
+#endif
     }
     else if (PyDict_Check(parent)) {
         PyObject *key = ctx->keys[ctx->key_offset].stack;
 
 #ifdef DEBUG
-        _debug("used:%d\n", ctx->keys[ctx->key_offset].used);
+        _debug("hash used:%d\n", ctx->keys[ctx->key_offset].used);
         _debug("parent:%p, key:%p, child:%p\n", parent, key, child);
 #endif
 
@@ -191,14 +195,12 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
             _debug("root_type        :%d STRING\n", ctx->root_type);
         else
             _debug("root_type        :%d PRIMITIVE\n", ctx->root_type);
-        _debug("elements[%2d].used:%d\n", ctx->stack_offset,
-                                          ctx->elements[ctx->stack_offset].used);
-        _debug("elements[%2d].size:%d\n", ctx->stack_offset,
-                                          ctx->elements[ctx->stack_offset].size);
-        _debug("keys[%2d].used    :%d\n", ctx->key_offset,
-                                          ctx->keys[ctx->key_offset].used);
-        _debug("keys[%2d].size    :%d\n", ctx->key_offset,
-                                          ctx->keys[ctx->key_offset].size);
+        _debug("elements[%2d] %d/%d\n", ctx->stack_offset,
+                                        ctx->elements[ctx->stack_offset].used,
+                                        ctx->elements[ctx->stack_offset].size);
+        _debug("keys    [%2d] %d/%d\n", ctx->key_offset,
+                                        ctx->keys[ctx->key_offset].used,
+                                        ctx->keys[ctx->key_offset].size);
         _debug("ctx->root:%p, object:%p\n", ctx->root, object);
 #endif
 
@@ -215,36 +217,41 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         _set_object(ctx, ctx->elements[ctx->stack_offset].stack, object);
         ctx->root = ctx->elements[ctx->stack_offset].stack;
 
-        if (ctx->elements[ctx->stack_offset].used == ctx->elements[ctx->stack_offset].size &&
-                ctx->stack_offset != 0) {
-            //if (PyDict_Check(ctx->elements[ctx->stack_offset].stack)) {
-            //    memset(&ctx->keys[ctx->key_offset], 0, sizeof(_pyjsmn_stack));
-            //    ctx->key_offset--;
-            //}
-            ctx->key_offset--;
-            ctx->stack_offset--;
+        for (; ctx->stack_offset!=0; ) {
+            if (ctx->elements[ctx->stack_offset].used == ctx->elements[ctx->stack_offset].size &&
+                    ctx->stack_offset != 0) {
+
+                ctx->key_offset--;
+                ctx->stack_offset--;
 
 #ifdef DEBUG
-            printf("stack set\n");
+                _debug("elements[%2d] %d/%d\n", ctx->stack_offset,
+                                          ctx->elements[ctx->stack_offset].used,
+                                          ctx->elements[ctx->stack_offset].size);
+                printf("stack set\n");
 #endif
-            _set_object(ctx, ctx->elements[ctx->stack_offset].stack,
-                        ctx->elements[ctx->stack_offset+1].stack);
-            ctx->root = ctx->elements[ctx->stack_offset].stack;
-            if (PyDict_Check(ctx->root)) {
-                ctx->root_type = JSMN_OBJECT;
+                _set_object(ctx, ctx->elements[ctx->stack_offset].stack,
+                            ctx->elements[ctx->stack_offset+1].stack);
+                ctx->root = ctx->elements[ctx->stack_offset].stack;
+                if (PyDict_Check(ctx->root)) {
+                    ctx->root_type = JSMN_OBJECT;
 #ifdef DEBUG
-            printf("stack object\n");
+                    printf("stack object\n");
 #endif
+                }
+                else {
+                    ctx->root_type = JSMN_ARRAY;
+#ifdef DEBUG
+                    printf("stack array\n");
+#endif
+                }
+
+                memset(&ctx->elements[ctx->stack_offset+1], 0, sizeof(_pyjsmn_stack));
+                memset(&ctx->keys[ctx->key_offset+1], 0, sizeof(_pyjsmn_stack));
             }
             else {
-                ctx->root_type = JSMN_ARRAY;
-#ifdef DEBUG
-            printf("stack array\n");
-#endif
+                break;
             }
-
-            memset(&ctx->elements[ctx->stack_offset+1], 0, sizeof(_pyjsmn_stack));
-            memset(&ctx->keys[ctx->key_offset], 0, sizeof(_pyjsmn_stack));
         }
     }
 

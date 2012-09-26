@@ -5,7 +5,7 @@ install:
 
 setup:
 	rm -rf jsmn
-	hg clone https://bitbucket.org/zserge/jsmn
+	/usr/bin/hg clone https://bitbucket.org/zserge/jsmn
 
 test:
 	python tests/test_pyjsmn.py
