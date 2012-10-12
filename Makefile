@@ -21,7 +21,7 @@ pyjsmnbuild:
 	python setup.py build
 
 clean:
-	rm -rf build *.egg-info temp
+	rm -rf build *.egg-info dist temp
 	rm -rf tests/*.pyc
 
 pypireg:
