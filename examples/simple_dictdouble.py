@@ -5,4 +5,4 @@ jsonstr = """\
     "name" : "Jack",
     "pc" : {"windows": "XP", "linux": null}
 }"""
-print pyjsmn.loads(jsonstr)
+print(pyjsmn.loads(jsonstr))

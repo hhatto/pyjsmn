@@ -195,10 +195,10 @@ jsonstr = """
 """
 jsonobj = pyjsmn.loads(jsonstr)
 if jsonobj != masterobj:
-    print "error!!"
-    print len(jsonobj), len(masterobj)
-    print jsonobj
-    print masterobj
+    print("error!!")
+    print(len(jsonobj), len(masterobj))
+    print(jsonobj)
+    print(masterobj)
 #jsonobj = json.loads(jsonstr)
 #if jsonobj != masterobj:
 #    print "error!!"

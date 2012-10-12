@@ -3,6 +3,10 @@
 
 #include "jsmn.h"
 
+#if PY_MAJOR_VERSION >= 3
+#define PY3
+#endif
+
 #define DEFAULT_TOKEN_SIZE 1024
 
 #ifdef DEBUG
@@ -28,7 +32,9 @@ static _pyjsmn_ctx _ctx;
 static jsmn_parser parser;
 
 /* The module doc strings */
+#ifndef PY3
 PyDoc_STRVAR(pyjsmn__doc__, "Python binding for jsmn");
+#endif
 PyDoc_STRVAR(pyjsmn_loads__doc__, "Decoding JSON");
 
 static inline void
@@ -95,10 +101,13 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
             break;
 
         case JSMN_STRING:
-            //object = PyUnicode_FromStringAndSize(jsontext + token->start,
-            //                                     token->end - token->start);
+#ifdef PY3
+            object = PyUnicode_FromStringAndSize(jsontext + token->start,
+                                                 token->end - token->start);
+#else
             object = PyString_FromStringAndSize(jsontext + token->start,
                                                 token->end - token->start);
+#endif
             // TODO: error handling
             ctx->elements[ctx->offset].used++;
             break;
@@ -127,10 +136,17 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
                         }
                         if (is_float) break;
                     }
+#ifdef PY3
+                    tmp_string = PyUnicode_FromStringAndSize(
+                            jsontext+token->start, token->end - token->start);
+                    if (is_float) object = PyFloat_FromString(tmp_string);
+                    else          object = PyLong_FromUnicode(PyUnicode_AS_UNICODE(tmp_string), PyUnicode_GET_SIZE(tmp_string), 10);
+#else
                     tmp_string = PyString_FromStringAndSize(
                             jsontext+token->start, token->end - token->start);
                     if (is_float) object = PyFloat_FromString(tmp_string, NULL);
                     else          object = PyInt_FromString(PyString_AS_STRING(tmp_string), NULL, 10);
+#endif
                     Py_DECREF(tmp_string);
                     break;
             }
@@ -274,14 +290,31 @@ static PyMethodDef PyjsmnMethods[] = {
     {NULL, NULL, 0, NULL} /* Sentinel */
 };
 
+#ifdef PY3
+static struct PyModuleDef pyjsmn_module_def = {
+    PyModuleDef_HEAD_INIT,
+    "pyjsmn",
+    "Python binding for jsmn",
+    -1,
+    PyjsmnMethods,
+};
+PyObject *
+PyInit_pyjsmn(void)
+#else
 
 PyMODINIT_FUNC
 initpyjsmn(void)
+#endif
 {
     PyObject *module;
 
+#ifdef PY3
+    module = PyModule_Create(&pyjsmn_module_def);
+    return module;
+#else
     /* The module */
     module = Py_InitModule3("pyjsmn", PyjsmnMethods, pyjsmn__doc__);
     if (module == NULL)
         return;
+#endif
 }
