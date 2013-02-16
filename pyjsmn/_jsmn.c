@@ -249,7 +249,7 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
 static PyObject *
 pyjsmn_loads(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    static char *kwlist[] = {"text"};
+    static char *kwlist[] = {"text", NULL};
     char *text;
     int ret;
     jsmntok_t token[DEFAULT_TOKEN_SIZE];
