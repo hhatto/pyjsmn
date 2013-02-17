@@ -3,7 +3,7 @@ from distutils.core import setup, Extension
 
 setup(
     name='pyjsmn',
-    version='0.2',
+    version='0.2.1',
     description='Python Interface for jsmn(JSON parser).',
     long_description=open('README.rst').read(),
     license='Expat License',
