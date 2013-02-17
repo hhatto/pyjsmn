@@ -43,6 +43,7 @@ Links
 -----
 * PyPI_
 * GitHub_
+* `Travis-CI`_
 
 .. _PyPI: http://pypi.python.org/pypi/pyjsmn/
 .. _GitHub: https://github.com/hhatto/pyjsmn
