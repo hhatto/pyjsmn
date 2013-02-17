@@ -5,6 +5,8 @@
 
 #if PY_MAJOR_VERSION >= 3
 #define PY3
+#define PyString_FromStringAndSize PyUnicode_FromStringAndSize
+#define PyInt_FromLong PyLong_FromLong
 #endif
 
 #define DEFAULT_TOKEN_SIZE 1024
@@ -76,7 +78,7 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
     int offset;
     int is_float;
     PyObject *object;
-    void *tmp_string;
+    char _tmp_string[100];
 
     switch (token->type) {
 
@@ -101,13 +103,8 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
             break;
 
         case JSMN_STRING:
-#ifdef PY3
-            object = PyUnicode_FromStringAndSize(jsontext + token->start,
-                                                 token->end - token->start);
-#else
             object = PyString_FromStringAndSize(jsontext + token->start,
                                                 token->end - token->start);
-#endif
             // TODO: error handling
             ctx->elements[ctx->offset].used++;
             break;
@@ -136,18 +133,11 @@ _get_pyobject(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
                         }
                         if (is_float) break;
                     }
-#ifdef PY3
-                    tmp_string = PyUnicode_FromStringAndSize(
-                            jsontext+token->start, token->end - token->start);
-                    if (is_float) object = PyFloat_FromString(tmp_string);
-                    else          object = PyLong_FromUnicode(PyUnicode_AS_UNICODE(tmp_string), PyUnicode_GET_SIZE(tmp_string), 10);
-#else
-                    tmp_string = PyString_FromStringAndSize(
-                            jsontext+token->start, token->end - token->start);
-                    if (is_float) object = PyFloat_FromString(tmp_string, NULL);
-                    else          object = PyInt_FromString(PyString_AS_STRING(tmp_string), NULL, 10);
-#endif
-                    Py_DECREF(tmp_string);
+
+                    _tmp_string[0] = 0;
+                    strncat(_tmp_string, jsontext+token->start, token->end - token->start);
+                    if (is_float) object = PyFloat_FromDouble(atof(_tmp_string));
+                    else          object = PyInt_FromLong(atol(_tmp_string));
                     break;
             }
             ctx->elements[ctx->offset].used++;
@@ -207,7 +197,6 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         _debug("ctx->root:%p, object:%p\n", ctx->root, object);
 #endif
 
-        //if (ctx->root && PyDict_Check(ctx->root) && !PyDict_Check(object) &&
         if (ctx->root && (ctx->root_type == JSMN_OBJECT) && !PyDict_Check(object) &&
                 (ctx->keys[ctx->offset].used % 2) == 0) {
             ctx->keys[ctx->offset].stack = object;
@@ -219,27 +208,25 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         ctx->root = ctx->elements[ctx->offset].stack;
 
         for (; ctx->offset!=0; ) {
-            if (ctx->elements[ctx->offset].used == ctx->elements[ctx->offset].size &&
-                    ctx->offset != 0) {
-
-                ctx->offset--;
-                _set_object(ctx, ctx->elements[ctx->offset].stack,
-                            ctx->elements[ctx->offset+1].stack);
-                ctx->root = ctx->elements[ctx->offset].stack;
-
-                if (PyDict_Check(ctx->root)) {
-                    ctx->root_type = JSMN_OBJECT;
-                }
-                else {
-                    ctx->root_type = JSMN_ARRAY;
-                }
-
-                memset(&ctx->elements[ctx->offset+1], 0, sizeof(_pyjsmn_stack));
-                memset(&ctx->keys[ctx->offset+1], 0, sizeof(_pyjsmn_stack));
-            }
-            else {
+            if (ctx->elements[ctx->offset].used != ctx->elements[ctx->offset].size ||
+                    ctx->offset == 0) {
                 break;
             }
+
+            ctx->offset--;
+            _set_object(ctx, ctx->elements[ctx->offset].stack,
+                        ctx->elements[ctx->offset+1].stack);
+            ctx->root = ctx->elements[ctx->offset].stack;
+
+            if (PyDict_Check(ctx->root)) {
+                ctx->root_type = JSMN_OBJECT;
+            }
+            else {
+                ctx->root_type = JSMN_ARRAY;
+            }
+
+            memset(&ctx->elements[ctx->offset+1], 0, sizeof(_pyjsmn_stack));
+            memset(&ctx->keys[ctx->offset+1], 0, sizeof(_pyjsmn_stack));
         }
     }
 
