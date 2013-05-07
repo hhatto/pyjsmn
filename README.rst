@@ -1,7 +1,7 @@
 pyjsmn
 ======
-.. image:: https://secure.travis-ci.org/hhatto/pyjsmn.png?branch=master
-   :target: https://secure.travis-ci.org/hhatto/pyjsmn
+.. image:: https://travis-ci.org/hhatto/pyjsmn.png?branch=master
+   :target: https://travis-ci.org/hhatto/pyjsmn
    :alt: Build status
 
 
@@ -47,4 +47,4 @@ Links
 
 .. _PyPI: http://pypi.python.org/pypi/pyjsmn/
 .. _GitHub: https://github.com/hhatto/pyjsmn
-.. _`Travis-CI`: https://secure.travis-ci.org/hhatto/pyjsmn
+.. _`Travis-CI`: https://travis-ci.org/hhatto/pyjsmn
