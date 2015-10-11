@@ -251,10 +251,8 @@ pyjsmn_loads(PyObject *self, PyObject *args, PyObject *kwargs)
 
     jsmn_init(&parser);
 
-    ret = jsmn_parse(&parser, text, token, DEFAULT_TOKEN_SIZE);
+    ret = jsmn_parse(&parser, text, strlen(text), token, DEFAULT_TOKEN_SIZE);
     switch (ret) {
-        case JSMN_SUCCESS:
-            break;
         case JSMN_ERROR_NOMEM:
             PyErr_SetString(PyExc_RuntimeError, "not enough tokens error.");
             return NULL;
@@ -263,6 +261,9 @@ pyjsmn_loads(PyObject *self, PyObject *args, PyObject *kwargs)
             return NULL;
         case JSMN_ERROR_PART:
         default:
+            if (ret >= 0) {
+                break;
+            }
             PyErr_SetString(PyExc_RuntimeError, "parse error.");
             return NULL;
     }
