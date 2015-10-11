@@ -7,7 +7,7 @@ setup: clean freshjsmn jsmnbuild
 
 freshjsmn:
 	rm -rf jsmn
-	hg clone https://bitbucket.org/zserge/jsmn
+	git clone https://github.com/zserge/jsmn.git
 
 test:
 	python tests/test_pyjsmn.py

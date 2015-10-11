@@ -10,7 +10,7 @@ About
 pyjsmn is a wrapper for `JSMN`_ (minimalistic JSON parser).
 pyjsmn is not support encoding method(obj->str).
 
-.. _`JSMN`: http://zserge.bitbucket.org/jsmn.html
+.. _`JSMN`: https://github.com/zserge/jsmn
 
 
 Installation
