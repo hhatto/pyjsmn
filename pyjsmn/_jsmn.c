@@ -166,6 +166,11 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
                strncat(tmp, jsontext+token[i].start, token[i].end-token[i].start));
 #endif
 
+        // skip first token is not object
+        if (!ctx->elements[0].stack && ctx->offset == -1) {
+            ctx->offset = 0;
+        }
+
         object = NULL;
         object = _get_pyobject(ctx, token + i, jsontext);
 
