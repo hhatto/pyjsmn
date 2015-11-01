@@ -208,7 +208,13 @@ _build_value(_pyjsmn_ctx *ctx, jsmntok_t *token, char *jsontext)
         ctx->root = ctx->elements[ctx->offset].stack;
 
         for (; ctx->offset!=0; ) {
-            if (ctx->elements[ctx->offset].used != ctx->elements[ctx->offset].size ||
+            int elements_size;
+            if (ctx->root_type == JSMN_OBJECT) {
+                elements_size = ctx->elements[ctx->offset].size * 2;
+            } else {
+                elements_size = ctx->elements[ctx->offset].size;
+            }
+            if (ctx->elements[ctx->offset].used != elements_size ||
                     ctx->offset == 0) {
                 break;
             }
